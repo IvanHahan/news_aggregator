@@ -52,7 +52,8 @@ import requests
 from bs4 import BeautifulSoup
 
 # Import our existing Google search functionality
-from google_search import GoogleSearchError, search_google
+from ..google_search import GoogleSearchError, search_google
+from .base_aggregator import BaseAggregator
 
 logger = logging.getLogger(__name__)
 
@@ -92,7 +93,7 @@ class NewsArticle:
         }
 
 
-class GoogleNewsAggregator:
+class GoogleNewsAggregator(BaseAggregator):
     """Aggregates news from Google search and extracts article content."""
 
     def __init__(
