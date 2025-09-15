@@ -6,55 +6,55 @@ class NewsSummarizer:
     def __init__(self, llm: ChatOpenAI):
         self.llm = llm
 
-    def run(self, news: str, language: str = "Ukrainian"):
+    def run(self, news: str, url: str, language: str = "Ukrainian"):
         prompt = PromptTemplate.from_template(SUMMARIZE_NEWS_PROMPT)
         chain = prompt | self.llm
-        return chain.invoke({"news": news, "language": language}).content
+        return chain.invoke({"news": news, "language": language, "url": url}).content
 
 
 SUMMARIZE_NEWS_PROMPT = """
-You are an expert news summarizer and journalist. 
-Your task is to create concise, accurate, and informative summary for given news in {language}.
+You are an expert news summarizer and journalist.  
+Create a **concise, accurate, and informative summary** of the news in {language}.
 
-News: `{news}`
+**Input:**  
+- URL: `{url}`  
+- News text: `{news}`  
 
-GUIDELINES:
-1. LANGUAGE: Write the entire summary in {language}, using natural and fluent expressions native to that language.
+## 📝 Guidelines
 
-2. STRUCTURE: Organize your summary with the following elements:
-   - Lead paragraph: Most important information (who, what, when, where, why)
-   - Key details: Supporting facts and context
-   - Impact/Significance: Why this news matters
+### 1. Language & Style
+- Write entirely in **{language}**, using natural, fluent expressions.  
+- Maintain clear, objective, third-person language with active voice.  
+- Preserve the original tone (breaking news, analysis, feature, etc.).
 
-3. LENGTH: Keep the summary between 100-200 words, focusing on the most essential information.
+### 2. Structure & Formatting
+- Include **title** - the name of news
+- Include one or many sections. Each section should have a **heading**. Use emojis to highlight sections (e.g., 🗞️ for headlines, 📊 for data).  
+- Include source attribution at the end in *italics* with the URL if available.
+- Use **bold** for key data: names, dates, numbers, locations, organizations.
+- Use bullet points (•) for key information.
+- Use *italics* for source attribution and include the URL if provided.
 
-4. ACCURACY: 
-   - Only include information that is explicitly stated in the original article
-   - Do not add speculation, opinions, or external knowledge
-   - Preserve important names, dates, numbers, and locations accurately
+Format:
+**<emoji> <title_name>**
+**<emoji> <section_name>**
+<text> |
+- <point>
+**Source**: [Example News](https://example.com/news)
 
-5. STYLE:
-   - Use clear, objective language
-   - Write in third person
-   - Maintain the original tone (breaking news, analysis, feature, etc.)
-   - Use active voice when possible
+### 3. Content & Accuracy
+- Only include facts explicitly stated in the article.  
+- Do not speculate or add external information.  
+- Focus on **main events, key stakeholders, timeline, location, statistics, and official statements**.
 
-6. PRIORITY: Focus on:
-   - Main event or development
-   - Key stakeholders involved
-   - Timeline and location
-   - Immediate consequences or implications
-   - Any official statements or reactions
+### 4. Length & Readability
+- Keep the summary between **150–250 words**.  
+- Ensure it flows logically, stands alone, and emphasizes the most newsworthy elements.
 
-7. LOCALIZATION CONSIDERATIONS:
-   - Use culturally appropriate expressions and terminology for {language}
-   - Convert measurements, currencies, or references to formats familiar to {language} speakers when relevant
-   - Maintain proper noun transliterations that are standard in {language}
+### 5. Localization & Formatting
+- Use culturally appropriate expressions and terminology for {language}.  
+- Convert measurements, currencies, or references to local formats if relevant.  
+- Preserve standard transliterations for proper nouns.
 
-8. QUALITY CHECKS:
-   - Ensure the summary can stand alone without the original article
-   - Verify that the most newsworthy elements are prominently featured
-   - Check that the summary flows logically and is easy to read
-
-Remember: Your goal is to help readers quickly understand the essential information of the news story in their preferred language while maintaining journalistic integrity and accuracy.
+**Goal:** Deliver a well-structured, easily readable summary that highlights critical facts and allows readers to quickly understand the essential news.
 """
