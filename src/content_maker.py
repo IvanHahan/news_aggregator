@@ -1,6 +1,11 @@
-from .aggregators import TelegramAggregator
-from .news_summarizer import NewsSummarizer
-from .publishers import TelegramPublisher
+import os
+
+from langchain_community.chat_models import ChatOpenAI
+
+from aggregators import TelegramAggregator
+from link_explorer import LinkExplorer
+from news_summarizer import NewsSummarizer
+from publishers import TelegramPublisher
 
 
 class ContentMaker:
@@ -21,13 +26,19 @@ class ContentMaker:
 
     @classmethod
     def build(cls):
+        link_explorer = LinkExplorer(ChatOpenAI(model="gpt-4.1-nano"))
         telegram_aggregator = TelegramAggregator(
-            channels=["@ai_machinelearning_big_data"]
+            channels=["@ai_machinelearning_big_data"],
+            api_hash=os.getenv("TELEGRAM_API_HASH"),
+            api_id=os.getenv("TELEGRAM_API_ID"),
+            link_explorer=link_explorer,
         )
         telegram_publisher = TelegramPublisher(
-            channels=["https://t.me/+mp_F_MoCIyQ3NjA6"]
+            channels=["https://t.me/+mp_F_MoCIyQ3NjA6"],
+            api_hash=os.getenv("TELEGRAM_API_HASH"),
+            api_id=os.getenv("TELEGRAM_API_ID"),
         )
-        news_summarizer = NewsSummarizer()
+        news_summarizer = NewsSummarizer(ChatOpenAI(model="gpt-4.1-nano"))
         return cls(
             aggregators=[telegram_aggregator],
             publishers=[telegram_publisher],

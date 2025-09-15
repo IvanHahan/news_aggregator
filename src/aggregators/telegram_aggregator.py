@@ -4,6 +4,9 @@ from datetime import datetime
 from typing import Optional
 
 from telethon import TelegramClient, events
+from telethon.tl.types import MessageEntityUrl
+
+from data_model import NewsArticle
 
 from .base_aggregator import BaseAggregator
 
@@ -21,11 +24,12 @@ class TelegramMessage:
 
 
 class TelegramAggregator(BaseAggregator):
-    def __init__(self, api_id: int, api_hash: str, channels: list[str]):
+    def __init__(self, api_id: int, api_hash: str, channels: list[str], link_explorer):
         self.client = TelegramClient("telegram_aggregator", api_id, api_hash)
         self.channels = channels
         self.queue: asyncio.Queue[TelegramMessage] = asyncio.Queue()
         self._task = None
+        self.link_explorer = link_explorer
 
         # Register handler once
         self.client.add_event_handler(
@@ -41,13 +45,16 @@ class TelegramAggregator(BaseAggregator):
 
         media_type = type(event.message.media).__name__ if event.message.media else None
 
-        msg = TelegramMessage(
-            channel=channel_name,
-            text=event.message.message or "",
-            timestamp=event.message.date,
-            message_id=event.message.id,
-            sender_id=event.sender_id,
-            media_type=media_type,
+        msg = NewsArticle(
+            title=event.message.message or "",
+            url=f"tg://{channel_name}/{event.message.id}",
+            snippet=event.message.message or "",
+            content=event.message.message or "",
+            author=event.sender_id,
+            published_date=event.message.date,
+            domain=channel_name,
+            word_count=len(event.message.message.split()),
+            tags=[channel_name],
         )
         await self.queue.put(msg)
 
@@ -56,13 +63,35 @@ class TelegramAggregator(BaseAggregator):
         self._task = asyncio.create_task(self.client.run_until_disconnected())
         print(f"✅ Listening to {len(self.channels)} channels...")
 
-    def poll(self) -> list[TelegramMessage]:
+    def poll(self) -> list[str]:
         items = []
-        while not self.queue.empty():
-            items.append(self.queue.get_nowait())
+        # while not self.queue.empty():
+        #     items.append(self.queue.get_nowait().text)
+        # Get messages from Telegram client
+        try:
+            for channel in self.channels:
+                messages = asyncio.run(self._get_messages(channel))
+                for msg in messages:
+                    links = self._get_links_from_message(msg)
+                    contents = self.link_explorer.extract_content_batch(links)
+                    if msg.message:
+                        items.extend(contents)
+        except Exception as e:
+            print(f"Error retrieving messages: {e}")
         return items
 
-    def peek(self) -> list[TelegramMessage]:
+    def _get_links_from_message(self, message: TelegramMessage) -> list[str]:
+        hyperlinks = []
+        for entity in message.get_entities_text():
+            if isinstance(entity[0], MessageEntityUrl):
+                hyperlinks.append(entity[1])
+        return hyperlinks
+
+    async def _get_messages(self, channel) -> list[TelegramMessage]:
+        async with self.client:
+            return await self.client.get_messages(channel, limit=3)
+
+    def peek(self) -> list[NewsArticle]:
         return list(self.queue._queue)  # not ideal but works
 
     async def stop(self):

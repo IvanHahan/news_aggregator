@@ -40,22 +40,19 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import re
 import sys
-import time
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import List, Optional, Set
+from typing import List, Optional
 from urllib.parse import urlparse
 
-import requests
-from bs4 import BeautifulSoup
+from loguru import logger
 
 # Import our existing Google search functionality
-from ..google_search import GoogleSearchError, search_google
-from .base_aggregator import BaseAggregator
+from google_search import GoogleSearchError, search_google
+from link_explorer import LinkExplorer
 
-logger = logging.getLogger(__name__)
+from .base_aggregator import BaseAggregator
 
 
 @dataclass(slots=True)
@@ -113,22 +110,12 @@ class GoogleNewsAggregator(BaseAggregator):
             user_agent: User agent string for HTTP requests
         """
         self.api_key = api_key
-        self.request_timeout = request_timeout
         self.delay_between_requests = delay_between_requests
-        self.user_agent = user_agent
-        self.session = requests.Session()
-        self.session.headers.update({"User-Agent": user_agent})
 
-        # Domains to skip (social media, aggregators, etc.)
-        self.skip_domains: Set[str] = {
-            "twitter.com",
-            "x.com",
-            "facebook.com",
-            "instagram.com",
-            "linkedin.com",
-            "reddit.com",
-            "youtube.com",
-        }
+        # Initialize link explorer for content extraction
+        self.link_explorer = LinkExplorer(
+            request_timeout=request_timeout, user_agent=user_agent
+        )
 
     def search_news(
         self,
@@ -171,7 +158,7 @@ class GoogleNewsAggregator(BaseAggregator):
             # Convert to NewsArticle objects
             articles = []
             for result in search_results[:limit]:
-                if self._should_skip_domain(result.url):
+                if self.link_explorer.should_skip_domain(result.url):
                     logger.debug(f"Skipping domain: {result.url}")
                     continue
 
@@ -210,178 +197,33 @@ class GoogleNewsAggregator(BaseAggregator):
             return False
 
     def _extract_content_batch(self, articles: List[NewsArticle]) -> None:
-        """Extract content from a batch of articles."""
+        """Extract content from a batch of articles using LinkExplorer."""
         logger.info(f"Extracting content from {len(articles)} articles")
 
-        for i, article in enumerate(articles):
-            try:
-                logger.debug(f"Extracting content from: {article.url}")
-                self._extract_article_content(article)
+        # Extract URLs for batch processing
+        urls = [article.url for article in articles]
 
-                # Add delay between requests to be respectful
-                if i < len(articles) - 1:
-                    time.sleep(self.delay_between_requests)
+        # Use LinkExplorer for batch content extraction
+        extracted_contents = self.link_explorer.extract_content_batch(
+            urls, delay_between_requests=self.delay_between_requests
+        )
 
-            except Exception as e:
-                logger.warning(f"Failed to extract content from {article.url}: {e}")
-                article.extraction_error = str(e)
-
-    def _extract_article_content(self, article: NewsArticle) -> None:
-        """Extract content from a single article."""
-        try:
-            # Fetch the webpage
-            response = self.session.get(article.url, timeout=self.request_timeout)
-            response.raise_for_status()
-
-            # Parse with BeautifulSoup
-            soup = BeautifulSoup(response.content, "html.parser")
-
-            # Remove unwanted elements
-            for element in soup(
-                ["script", "style", "nav", "header", "footer", "aside"]
-            ):
-                element.decompose()
-
-            # Try to extract the main content
-            content = self._extract_main_content(soup)
-
-            if content:
-                article.content = content
-                article.word_count = len(content.split())
+        # Map results back to articles
+        for article, extracted in zip(articles, extracted_contents):
+            if extracted.extraction_success:
+                article.content = extracted.content
+                article.word_count = extracted.word_count
                 article.extraction_success = True
 
-                # Try to extract additional metadata
-                self._extract_metadata(article, soup)
-
+                # Copy over metadata if available
+                if extracted.author:
+                    article.author = extracted.author
+                if extracted.published_date:
+                    article.published_date = extracted.published_date
+                if extracted.tags:
+                    article.tags = extracted.tags
             else:
-                article.extraction_error = "No main content found"
-
-        except requests.exceptions.RequestException as e:
-            article.extraction_error = f"Request failed: {str(e)}"
-        except Exception as e:
-            article.extraction_error = f"Extraction failed: {str(e)}"
-
-    def _extract_main_content(self, soup: BeautifulSoup) -> str:
-        """Extract the main article content from parsed HTML."""
-        # Try common article selectors
-        content_selectors = [
-            "article",
-            "[role='main']",
-            ".article-content",
-            ".post-content",
-            ".entry-content",
-            ".story-body",
-            ".article-body",
-            ".content",
-            "main",
-        ]
-
-        for selector in content_selectors:
-            elements = soup.select(selector)
-            if elements:
-                # Get the largest element (likely the main content)
-                element = max(elements, key=lambda x: len(x.get_text()))
-                text = element.get_text(separator=" ", strip=True)
-                if len(text) > 200:  # Minimum content length
-                    return self._clean_text(text)
-
-        # Fallback: try to find paragraphs
-        paragraphs = soup.find_all("p")
-        if paragraphs:
-            content = " ".join(p.get_text(strip=True) for p in paragraphs)
-            content = self._clean_text(content)
-            if len(content) > 200:
-                return content
-
-        return ""
-
-    def _extract_metadata(self, article: NewsArticle, soup: BeautifulSoup) -> None:
-        """Extract additional metadata from the article."""
-        # Try to extract author
-        author_selectors = [
-            "[name='author']",
-            ".author",
-            ".byline",
-            "[rel='author']",
-            ".article-author",
-        ]
-
-        for selector in author_selectors:
-            element = soup.select_one(selector)
-            if element:
-                author = element.get("content") or element.get_text(strip=True)
-                if author:
-                    article.author = self._clean_text(author)
-                    break
-
-        # Try to extract published date
-        date_selectors = [
-            "[name='article:published_time']",
-            "[name='publishdate']",
-            "[name='date']",
-            ".published",
-            ".date",
-            "time[datetime]",
-        ]
-
-        for selector in date_selectors:
-            element = soup.select_one(selector)
-            if element:
-                date_str = (
-                    element.get("content")
-                    or element.get("datetime")
-                    or element.get_text(strip=True)
-                )
-                if date_str:
-                    try:
-                        # Try to parse the date (this is a simplified approach)
-                        from datetime import datetime
-
-                        # Common date patterns
-                        for fmt in [
-                            "%Y-%m-%dT%H:%M:%S",
-                            "%Y-%m-%d %H:%M:%S",
-                            "%Y-%m-%d",
-                            "%B %d, %Y",
-                            "%b %d, %Y",
-                        ]:
-                            try:
-                                article.published_date = datetime.strptime(
-                                    date_str[:19], fmt
-                                )
-                                break
-                            except ValueError:
-                                continue
-                    except Exception:
-                        pass
-                    break
-
-        # Extract keywords/tags
-        keywords_element = soup.select_one("[name='keywords']")
-        if keywords_element:
-            keywords = keywords_element.get("content", "")
-            if keywords:
-                article.tags = [
-                    tag.strip() for tag in keywords.split(",") if tag.strip()
-                ]
-
-    def _clean_text(self, text: str) -> str:
-        """Clean and normalize text content."""
-        if not text:
-            return ""
-
-        # Remove extra whitespace
-        text = re.sub(r"\s+", " ", text)
-
-        # Remove common unwanted patterns
-        text = re.sub(
-            r"(Subscribe to|Sign up for|Follow us on).*", "", text, flags=re.IGNORECASE
-        )
-        text = re.sub(
-            r"(Advertisement|Sponsored content).*", "", text, flags=re.IGNORECASE
-        )
-
-        return text.strip()
+                article.extraction_error = extracted.extraction_error
 
     def get_trending_topics(self, limit: int = 10) -> List[NewsArticle]:
         """Get trending news topics."""

@@ -1,5 +1,5 @@
 from langchain.prompts import PromptTemplate
-from langchain_community.chat_models import ChatOpenAI
+from langchain_openai.chat_models import ChatOpenAI
 
 
 class NewsSummarizer:
@@ -9,7 +9,7 @@ class NewsSummarizer:
     def run(self, news: str, language: str = "Ukrainian"):
         prompt = PromptTemplate.from_template(SUMMARIZE_NEWS_PROMPT)
         chain = prompt | self.llm
-        return chain.run({"news": news, "language": language})
+        return chain.invoke({"news": news, "language": language})
 
 
 SUMMARIZE_NEWS_PROMPT = """
