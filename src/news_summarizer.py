@@ -9,7 +9,7 @@ class NewsSummarizer:
     def run(self, news: str, language: str = "Ukrainian"):
         prompt = PromptTemplate.from_template(SUMMARIZE_NEWS_PROMPT)
         chain = prompt | self.llm
-        return chain.invoke({"news": news, "language": language})
+        return chain.invoke({"news": news, "language": language}).content
 
 
 SUMMARIZE_NEWS_PROMPT = """

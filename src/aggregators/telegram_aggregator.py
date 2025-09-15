@@ -6,7 +6,7 @@ from typing import Optional
 from telethon import TelegramClient, events
 from telethon.tl.types import MessageEntityUrl
 
-from data_model import NewsArticle
+from data_model import News, NewsArticle
 
 from .base_aggregator import BaseAggregator
 
@@ -24,12 +24,21 @@ class TelegramMessage:
 
 
 class TelegramAggregator(BaseAggregator):
-    def __init__(self, api_id: int, api_hash: str, channels: list[str], link_explorer):
+    def __init__(
+        self,
+        api_id: int,
+        api_hash: str,
+        channels: list[str],
+        link_explorer,
+        limit: int = 3,
+    ):
         self.client = TelegramClient("telegram_aggregator", api_id, api_hash)
         self.channels = channels
         self.queue: asyncio.Queue[TelegramMessage] = asyncio.Queue()
         self._task = None
         self.link_explorer = link_explorer
+        self.limit = limit
+        self.cache = list()
 
         # Register handler once
         self.client.add_event_handler(
@@ -65,17 +74,14 @@ class TelegramAggregator(BaseAggregator):
 
     def poll(self) -> list[str]:
         items = []
-        # while not self.queue.empty():
-        #     items.append(self.queue.get_nowait().text)
-        # Get messages from Telegram client
         try:
             for channel in self.channels:
                 messages = asyncio.run(self._get_messages(channel))
                 for msg in messages:
                     links = self._get_links_from_message(msg)
-                    contents = self.link_explorer.extract_content_batch(links)
+                    links = [self.link_explorer.extract_content(l) for l in links]
                     if msg.message:
-                        items.extend(contents)
+                        items.append(News(content=msg.message, links=links))
         except Exception as e:
             print(f"Error retrieving messages: {e}")
         return items

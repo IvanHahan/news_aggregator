@@ -41,53 +41,18 @@ import argparse
 import json
 import logging
 import sys
-from dataclasses import dataclass, field
-from datetime import datetime
 from typing import List, Optional
 from urllib.parse import urlparse
 
 from loguru import logger
+
+from data_model import LinkContent
 
 # Import our existing Google search functionality
 from google_search import GoogleSearchError, search_google
 from link_explorer import LinkExplorer
 
 from .base_aggregator import BaseAggregator
-
-
-@dataclass(slots=True)
-class NewsArticle:
-    """Represents a news article with extracted content."""
-
-    title: str
-    url: str
-    snippet: str
-    content: str = ""
-    author: Optional[str] = None
-    published_date: Optional[datetime] = None
-    domain: Optional[str] = None
-    word_count: int = 0
-    tags: List[str] = field(default_factory=list)
-    extraction_success: bool = False
-    extraction_error: Optional[str] = None
-
-    def to_dict(self) -> dict:
-        """Convert the article to a dictionary."""
-        return {
-            "title": self.title,
-            "url": self.url,
-            "snippet": self.snippet,
-            "content": self.content,
-            "author": self.author,
-            "published_date": (
-                self.published_date.isoformat() if self.published_date else None
-            ),
-            "domain": self.domain,
-            "word_count": self.word_count,
-            "tags": self.tags,
-            "extraction_success": self.extraction_success,
-            "extraction_error": self.extraction_error,
-        }
 
 
 class GoogleNewsAggregator(BaseAggregator):
@@ -117,13 +82,16 @@ class GoogleNewsAggregator(BaseAggregator):
             request_timeout=request_timeout, user_agent=user_agent
         )
 
+    def poll(self, query="AI news"):
+        return self.search_news(query=query)
+
     def search_news(
         self,
         query: str,
         limit: int = 10,
         extract_content: bool = True,
         news_specific: bool = True,
-    ) -> List[NewsArticle]:
+    ) -> List[LinkContent]:
         """
         Search for news articles and optionally extract their content.
 
@@ -141,9 +109,6 @@ class GoogleNewsAggregator(BaseAggregator):
         """
         # Modify query for news-specific search
         search_query = query
-        if news_specific:
-            # Add news-related terms to improve relevance
-            search_query = f"{query} news OR article OR report"
 
         logger.info(f"Searching for news: {search_query}")
 
@@ -162,11 +127,10 @@ class GoogleNewsAggregator(BaseAggregator):
                     logger.debug(f"Skipping domain: {result.url}")
                     continue
 
-                article = NewsArticle(
+                article = LinkContent(
                     title=result.title,
                     url=result.url,
-                    snippet=result.snippet,
-                    domain=result.domain,
+                    text=result.snippet,
                 )
 
                 articles.append(article)
@@ -196,7 +160,7 @@ class GoogleNewsAggregator(BaseAggregator):
         except Exception:
             return False
 
-    def _extract_content_batch(self, articles: List[NewsArticle]) -> None:
+    def _extract_content_batch(self, articles: List[LinkContent]) -> None:
         """Extract content from a batch of articles using LinkExplorer."""
         logger.info(f"Extracting content from {len(articles)} articles")
 
@@ -210,22 +174,12 @@ class GoogleNewsAggregator(BaseAggregator):
 
         # Map results back to articles
         for article, extracted in zip(articles, extracted_contents):
-            if extracted.extraction_success:
-                article.content = extracted.content
-                article.word_count = extracted.word_count
-                article.extraction_success = True
-
-                # Copy over metadata if available
-                if extracted.author:
-                    article.author = extracted.author
-                if extracted.published_date:
-                    article.published_date = extracted.published_date
-                if extracted.tags:
-                    article.tags = extracted.tags
+            if extracted.extraction_error is None:
+                article.text = extracted.text
             else:
                 article.extraction_error = extracted.extraction_error
 
-    def get_trending_topics(self, limit: int = 10) -> List[NewsArticle]:
+    def get_trending_topics(self, limit: int = 10) -> List[LinkContent]:
         """Get trending news topics."""
         trending_queries = [
             "breaking news today",

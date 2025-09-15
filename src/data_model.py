@@ -4,6 +4,21 @@ from typing import List, Optional
 
 
 @dataclass(slots=True)
+class LinkContent:
+    url: str
+    title: Optional[str] = None
+    text: Optional[str] = None
+    domain: Optional[str] = None
+    extraction_error: Optional[str] = None
+
+
+@dataclass(slots=True)
+class News:
+    content: str
+    links: List[LinkContent] = field(default_factory=list)
+
+
+@dataclass(slots=True)
 class NewsArticle:
     """Represents a news article with extracted content."""
 

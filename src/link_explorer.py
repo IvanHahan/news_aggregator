@@ -30,53 +30,15 @@ Dependencies:
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass, field
-from datetime import datetime
-from typing import List, Optional, Set
+from typing import List, Set
 from urllib.parse import urlparse
 
 import requests
 from bs4 import BeautifulSoup
 from langchain.prompts import PromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
-from langchain_openai.chat_models import ChatOpenAI
 
-
-@dataclass(slots=True)
-class ExtractedContent:
-    """Represents extracted content from a web page."""
-
-    url: str
-    title: str = ""
-    content: str = ""
-    author: Optional[str] = None
-    published_date: Optional[datetime] = None
-    domain: Optional[str] = None
-    word_count: int = 0
-    tags: List[str] = field(default_factory=list)
-    extraction_success: bool = False
-    extraction_error: Optional[str] = None
-    response_status_code: Optional[int] = None
-    content_type: Optional[str] = None
-
-    def to_dict(self) -> dict:
-        """Convert the extracted content to a dictionary."""
-        return {
-            "url": self.url,
-            "title": self.title,
-            "content": self.content,
-            "author": self.author,
-            "published_date": (
-                self.published_date.isoformat() if self.published_date else None
-            ),
-            "domain": self.domain,
-            "word_count": self.word_count,
-            "tags": self.tags,
-            "extraction_success": self.extraction_success,
-            "extraction_error": self.extraction_error,
-            "response_status_code": self.response_status_code,
-            "content_type": self.content_type,
-        }
+from data_model import LinkContent
 
 
 class LinkExplorer:
@@ -84,7 +46,6 @@ class LinkExplorer:
 
     def __init__(
         self,
-        llm: ChatOpenAI,
         request_timeout: int = 30,
         user_agent: str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
         max_content_length: int = 1024 * 1024,  # 1MB
@@ -103,19 +64,15 @@ class LinkExplorer:
         self.user_agent = user_agent
         self.max_content_length = max_content_length
         self.min_content_length = min_content_length
-        self.llm = llm
 
         # Initialize HTTP session
         self.session = requests.Session()
 
         # Domains to skip (social media, aggregators, etc.)
         self.skip_domains: Set[str] = {
-            "twitter.com",
-            "x.com",
             "facebook.com",
             "instagram.com",
             "linkedin.com",
-            "reddit.com",
             "youtube.com",
             "tiktok.com",
             "pinterest.com",
@@ -171,7 +128,7 @@ class LinkExplorer:
         except Exception:
             return False
 
-    def extract_content(self, url: str) -> ExtractedContent:
+    def extract_content(self, url: str) -> LinkContent:
         """
         Extract content from a single URL.
 
@@ -181,7 +138,7 @@ class LinkExplorer:
         Returns:
             ExtractedContent object with extracted data and metadata
         """
-        result = ExtractedContent(url=url)
+        result = LinkContent(url=url)
 
         try:
             # Parse domain
@@ -199,18 +156,11 @@ class LinkExplorer:
 
             # Fetch the webpage
             response = self.session.get(url, timeout=self.request_timeout)
-            result.response_status_code = response.status_code
-            result.content_type = response.headers.get("content-type", "").split(";")[0]
+            result.extraction_error = (
+                f"HTTP {response.status_code}" if response.status_code != 200 else None
+            )
 
             response.raise_for_status()
-
-            # Check content length
-            if len(response.content) > self.max_content_length:
-                result.extraction_error = (
-                    f"Content too large ({len(response.content)} bytes)"
-                )
-                return result
-
             # Parse with BeautifulSoup
             soup = BeautifulSoup(response.content, "html.parser")
 
@@ -218,19 +168,7 @@ class LinkExplorer:
             self._clean_soup(soup)
 
             # Extract main content
-            parsed = self._parse_content_with_llm(soup.text)
-            result.title = parsed.get("title", "")
-            result.content = parsed.get("summary", "")
-            result.author = parsed.get("author", None)
-            published_date_str = parsed.get("published_date", None)
-            if published_date_str:
-                try:
-                    result.published_date = datetime.strptime(
-                        published_date_str, "%d-%m-%Y"
-                    )
-                except ValueError:
-                    pass  # Ignore parsing errors
-            result.tags = parsed.get("tags", [])
+            result.text = soup.text.strip()
 
         except requests.exceptions.Timeout:
             result.extraction_error = f"Request timeout after {self.request_timeout}s"
@@ -257,7 +195,7 @@ class LinkExplorer:
 
     def extract_content_batch(
         self, urls: List[str], delay_between_requests: float = 1.0
-    ) -> List[ExtractedContent]:
+    ) -> List[LinkContent]:
         """
         Extract content from multiple URLs with rate limiting.
 
@@ -281,7 +219,7 @@ class LinkExplorer:
 
             except Exception as e:
                 # Create failed result
-                result = ExtractedContent(url=url)
+                result = LinkContent(url=url)
                 result.extraction_error = f"Batch extraction failed: {str(e)}"
                 results.append(result)
 
