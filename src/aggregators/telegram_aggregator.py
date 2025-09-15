@@ -30,7 +30,7 @@ class TelegramAggregator(BaseAggregator):
         api_hash: str,
         channels: list[str],
         link_explorer,
-        limit: int = 3,
+        limit: int = 10,
     ):
         self.client = TelegramClient("telegram_aggregator", api_id, api_hash)
         self.channels = channels
@@ -95,7 +95,7 @@ class TelegramAggregator(BaseAggregator):
 
     async def _get_messages(self, channel) -> list[TelegramMessage]:
         async with self.client:
-            return await self.client.get_messages(channel, limit=3)
+            return await self.client.get_messages(channel, limit=self.limit)
 
     def peek(self) -> list[NewsArticle]:
         return list(self.queue._queue)  # not ideal but works

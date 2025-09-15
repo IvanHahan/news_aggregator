@@ -21,10 +21,10 @@ class ContentMaker:
             if news:
                 for n in news:
                     if isinstance(n, News):
-                        if news.links:
-                            processed_news = self.news_processor.run(news.links[0].text)
+                        if n.links:
+                            processed_news = self.news_processor.run(n.links[0].text)
                         else:
-                            processed_news = self.news_processor.run(news.content)
+                            processed_news = self.news_processor.run(n.content)
                     elif isinstance(n, LinkContent):
                         processed_news = self.news_processor.run(n.text)
                     for publisher in self.publishers:
