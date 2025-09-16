@@ -2,5 +2,7 @@ google-search-results
 beautifulsoup4
 telethon
 langchain
+langchain-openai
 requests
 peewee
+loguru

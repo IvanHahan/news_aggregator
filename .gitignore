@@ -222,3 +222,7 @@ logs/
 outputs/
 result/
 data/
+*.session
+*.db
+*.sqlite
+*.sqlite3

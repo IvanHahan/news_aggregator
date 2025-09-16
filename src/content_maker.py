@@ -1,7 +1,7 @@
 import os
 from datetime import datetime
 
-from langchain_community.chat_models import ChatOpenAI
+from langchain_openai.chat_models import ChatOpenAI
 
 from aggregators import GoogleNewsAggregator, TelegramAggregator
 from db import NewsArticle
