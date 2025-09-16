@@ -1,9 +1,10 @@
 import os
+from datetime import datetime
 
 from langchain_community.chat_models import ChatOpenAI
 
 from aggregators import GoogleNewsAggregator, TelegramAggregator
-from data_model import LinkContent, News
+from db import NewsArticle
 from link_explorer import LinkExplorer
 from news_summarizer import NewsSummarizer
 from publishers import TelegramPublisher
@@ -20,15 +21,14 @@ class ContentMaker:
             news = aggregator.poll()
             if news:
                 for n in news:
-                    if isinstance(n, News):
-                        if n.links:
-                            processed_news = self.news_processor.run(
-                                n.links[0].text, n.links[0].url
-                            )
-                        else:
-                            processed_news = self.news_processor.run(n.content, "None")
-                    elif isinstance(n, LinkContent):
-                        processed_news = self.news_processor.run(n.text, n.url)
+                    if NewsArticle.has_url(n.url):
+                        print(f"Skipping already processed news: {n.url}")
+                        continue
+                    NewsArticle.create(
+                        title=n.title, url=n.url, content=n.text, date=datetime.now()
+                    )
+                    NewsArticle.evict_excess(1000)
+                    processed_news = self.news_processor.run(n.text, n.url)
                     for publisher in self.publishers:
                         publisher.publish(processed_news)
                     break

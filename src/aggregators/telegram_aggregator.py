@@ -6,7 +6,7 @@ from typing import Optional
 from telethon import TelegramClient, events
 from telethon.tl.types import MessageEntityUrl
 
-from data_model import News, NewsArticle
+from data_model import NewsArticle
 
 from .base_aggregator import BaseAggregator
 
@@ -38,7 +38,6 @@ class TelegramAggregator(BaseAggregator):
         self._task = None
         self.link_explorer = link_explorer
         self.limit = limit
-        self.cache = list()
 
         # Register handler once
         self.client.add_event_handler(
@@ -80,8 +79,7 @@ class TelegramAggregator(BaseAggregator):
                 for msg in messages:
                     links = self._get_links_from_message(msg)
                     links = [self.link_explorer.extract_content(l) for l in links]
-                    if msg.message:
-                        items.append(News(content=msg.message, links=links))
+                    items.extend(links)
         except Exception as e:
             print(f"Error retrieving messages: {e}")
         return items
