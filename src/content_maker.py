@@ -31,8 +31,7 @@ class ContentMaker:
                     processed_news = self.news_processor.run(n.text, n.url)
                     for publisher in self.publishers:
                         publisher.publish(processed_news)
-                    break
-                break
+                    return
 
     @classmethod
     def build(cls):
