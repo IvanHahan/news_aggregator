@@ -38,6 +38,8 @@ class TelegramAggregator(BaseAggregator):
         self._task = None
         self.link_explorer = link_explorer
         self.limit = limit
+        self.api_id = api_id
+        self.api_hash = api_hash
 
         # Register handler once
         self.client.add_event_handler(
@@ -92,8 +94,10 @@ class TelegramAggregator(BaseAggregator):
         return hyperlinks
 
     async def _get_messages(self, channel) -> list[TelegramMessage]:
-        async with self.client:
-            return await self.client.get_messages(channel, limit=self.limit)
+        async with TelegramClient(
+            "message_retriever", self.api_id, self.api_hash
+        ) as client:
+            return await client.get_messages(channel, limit=self.limit)
 
     def peek(self) -> list[NewsArticle]:
         return list(self.queue._queue)  # not ideal but works
