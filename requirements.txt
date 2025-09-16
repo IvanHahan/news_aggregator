@@ -6,3 +6,4 @@ langchain-openai
 requests
 peewee
 loguru
+python-dotenv
