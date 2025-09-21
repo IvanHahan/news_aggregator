@@ -58,26 +58,26 @@ class NewsDatabase:
             )
             logger.info("Initialized empty FAISS vector store.")
 
-    def insert_document(self, text: str, metadata: dict) -> str:
+    def insert_document(self, document: dict) -> str:
         """Insert a document into the collection."""
 
-        doc_dict = {
-            "text": text,
-            "metadata": metadata,
-            "timestamp": metadata.get("timestamp", datetime.now()),
-        }
-        result = self.collection.insert_one(doc_dict)
-        metadata["_id"] = str(result.inserted_id)
+        document["timestamp"] = document.get("timestamp", datetime.now())
+        result = self.collection.insert_one(document)
+        document["_id"] = str(result.inserted_id)
         # Generate embedding for the document
-        embedding = self.embedding_function.embed_query(text)
-        self.vector_store.add_embeddings([(text, embedding)], metadatas=[metadata])
+        embedding = self.embedding_function.embed_query(document["text"])
+        self.vector_store.add_embeddings(
+            [(document["text"], embedding)], metadatas=[document]
+        )
 
         # Add to FAISS vector store if it exists
         if self.vector_store is not None:
             self.vector_store.add_documents(
                 [
                     Document(
-                        id=str(result.inserted_id), page_content=text, metadata=metadata
+                        id=str(result.inserted_id),
+                        page_content=document["text"],
+                        metadata=document,
                     )
                 ]
             )
@@ -86,7 +86,9 @@ class NewsDatabase:
             self.vector_store = FAISS.from_documents(
                 [
                     Document(
-                        id=str(result.inserted_id), page_content=text, metadata=metadata
+                        id=str(result.inserted_id),
+                        page_content=document["text"],
+                        metadata=document,
                     )
                 ],
                 self.embedding_function,

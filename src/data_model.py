@@ -13,19 +13,42 @@ class LinkContent:
 
 
 @dataclass(slots=True)
-class News:
-    content: str
-    links: List[LinkContent] = field(default_factory=list)
+class WebContent:
+    link: str
 
 
 @dataclass(slots=True)
-class Paper:
+class News(WebContent):
+    title: str
+    summary: str
+
+    def to_dict(self) -> dict:
+        return {
+            "text": self.summary,
+            "title": self.title,
+            "summary": self.summary,
+            "link": self.link,
+        }
+
+
+@dataclass(slots=True)
+class Paper(WebContent):
     title: str
     authors: List[str]
-    link: str
     summary: str
     published: Optional[str] = None
     updated: Optional[str] = None
+
+    def to_dict(self) -> dict:
+        return {
+            "text": self.summary,
+            "title": self.title,
+            "authors": self.authors,
+            "summary": self.summary,
+            "link": self.link,
+            "published": self.published,
+            "updated": self.updated,
+        }
 
 
 @dataclass(slots=True)
