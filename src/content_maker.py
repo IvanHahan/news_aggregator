@@ -2,7 +2,11 @@ import os
 
 from langchain_openai.chat_models import ChatOpenAI
 
-from aggregators import ArxivAggregator, GoogleNewsAggregator
+from aggregators import (
+    ArxivAggregator,
+    GoogleNewsAggregator,
+    HFTrendingPapersAggregator,
+)
 from db import NewsDatabase
 from link_explorer import LinkExplorer
 from news_summarizer import NewsSummarizer
@@ -39,7 +43,11 @@ class ContentMaker:
         )
         news_summarizer = NewsSummarizer(ChatOpenAI(model="gpt-4.1-nano"))
         return cls(
-            aggregators=[ArxivAggregator(), google_news_aggregator],
+            aggregators=[
+                HFTrendingPapersAggregator(),
+                ArxivAggregator(),
+                google_news_aggregator,
+            ],
             publishers=[telegram_publisher],
             news_processor=news_summarizer,
         )
