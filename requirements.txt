@@ -4,6 +4,7 @@ telethon
 langchain
 langchain-openai
 requests
-peewee
 loguru
 python-dotenv
+faiss-cpu
+pymongo

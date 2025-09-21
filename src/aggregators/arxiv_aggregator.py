@@ -7,17 +7,13 @@ from data_model import Paper
 
 from .base_aggregator import BaseAggregator
 
-# Example: Arxiv RSS feed for AI papers
-ARXIV_FEED_URL = "https://rss.arxiv.org/rss/cs.AI"
-
 
 class ArxivAggregator(BaseAggregator):
-    def __init__(self, feed_url=ARXIV_FEED_URL, max_entries=10):
-        self.feed_url = feed_url
+    def __init__(self, max_entries=10):
         self.max_entries = max_entries
 
     def poll(self) -> list[dict]:
-        return fetch_arxiv_atom()
+        return fetch_arxiv_atom(self.max_entries)
         # return parse_arxiv_feed(self.feed_url, self.max_entries)
 
 
@@ -55,7 +51,7 @@ def fetch_arxiv_atom(query="cat:cs.AI", start=0, max_results=5):
     return papers
 
 
-def parse_arxiv_feed(feed_url=ARXIV_FEED_URL, max_entries=10):
+def parse_arxiv_feed(feed_url="https://rss.arxiv.org/rss/cs.AI", max_entries=10):
     """
     Fetch and parse Arxiv RSS feed.
     Returns a list of papers with title, authors, link, and summary.
