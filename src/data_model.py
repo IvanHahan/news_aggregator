@@ -19,6 +19,16 @@ class News:
 
 
 @dataclass(slots=True)
+class Paper:
+    title: str
+    authors: List[str]
+    link: str
+    summary: str
+    published: Optional[str] = None
+    updated: Optional[str] = None
+
+
+@dataclass(slots=True)
 class NewsArticle:
     """Represents a news article with extracted content."""
 
