@@ -97,12 +97,18 @@ class NewsDatabase:
         logger.info(f"Inserted document with ID: {result.inserted_id}")
         return result.inserted_id
 
-    def search_similar(self, query: str, top_k: int = 5):
+    def search_similar(self, query: str, top_k: int = 5, threshold: float = 0.8):
         """Search for similar documents in the vector store."""
         if self.vector_store is None:
             return []
         results = self.vector_store.similarity_search(query, k=top_k)
-        return results
+        # Filter results based on the threshold
+        filtered = [doc for doc in results if doc.score >= threshold]
+        return filtered
+
+    def query(self, filter: dict):
+        """Query documents in the collection based on a filter."""
+        return list(self.collection.find(filter))
 
     def delete_extra(self, max_docs: int = 1000):
         """Delete extra documents to keep the collection size manageable."""

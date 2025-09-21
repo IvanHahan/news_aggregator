@@ -4,7 +4,7 @@ from datetime import datetime
 from langchain_openai.chat_models import ChatOpenAI
 
 from aggregators import GoogleNewsAggregator, TelegramAggregator
-from db import NewsArticle
+from db import NewsDatabase
 from link_explorer import LinkExplorer
 from news_summarizer import NewsSummarizer
 from publishers import TelegramPublisher
@@ -15,6 +15,7 @@ class ContentMaker:
         self.aggregators = aggregators
         self.publishers = publishers
         self.news_processor = news_processor
+        self.news_database = NewsDatabase()
 
     def run(self):
         for aggregator in self.aggregators:
@@ -27,7 +28,7 @@ class ContentMaker:
                     NewsArticle.create(
                         title=n.title, url=n.url, content=n.text, date=datetime.now()
                     )
-                    NewsArticle.evict_excess(1000)
+                    self.news_database.delete_extra()
                     processed_news = self.news_processor.run(n.text, n.url)
                     for publisher in self.publishers:
                         publisher.publish(processed_news)
