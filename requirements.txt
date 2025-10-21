@@ -9,7 +9,6 @@ requests
 loguru
 python-dotenv
 faiss-cpu
-pymongo
 feedparser
 python-dotenv
 pyrogram
