@@ -3,10 +3,10 @@ from datetime import datetime
 
 import faiss
 import pymongo
-from langchain.embeddings import OpenAIEmbeddings
-from langchain.schema import Document
-from langchain.vectorstores import FAISS
 from langchain_community.docstore.in_memory import InMemoryDocstore
+from langchain_community.vectorstores import FAISS
+from langchain_core.documents import Document
+from langchain_openai.embeddings import OpenAIEmbeddings
 from loguru import logger
 
 
