@@ -1,7 +1,6 @@
 google-search-results
 beautifulsoup4
 pyrogram
-telethon
 langchain
 langchain-openai
 langchain-community

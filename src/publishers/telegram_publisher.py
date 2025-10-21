@@ -1,6 +1,6 @@
 import asyncio
 
-from telethon import TelegramClient
+from pyrogram import Client
 
 from .base_publisher import BasePublisher
 
@@ -18,10 +18,11 @@ class TelegramPublisher(BasePublisher):
         asyncio.run(self._publish_to_all_channels(content))
 
     async def _publish_to_all_channels(self, content: str) -> None:
-        async with TelegramClient(
-            "telegram_publisher", self.api_id, self.api_hash
+        async with Client(
+            "telegram_publisher",
+            api_id=self.api_id,
+            api_hash=self.api_hash,
+            bot_token=self.telegram_bot_token,
         ) as client:
             for channel in self.channels:
-                await client.send_message(
-                    await client.get_input_entity(channel), content
-                )
+                await client.send_message("@hahanov_ai", content)
