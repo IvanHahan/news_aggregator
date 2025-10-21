@@ -1,6 +1,6 @@
 google-search-results
 beautifulsoup4
-telethon
+pyrogram
 langchain
 langchain-openai
 requests
